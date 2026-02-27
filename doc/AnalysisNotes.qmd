@@ -1,0 +1,91 @@
+---
+title: "JCOS"
+author: "Maggie Gaddis and Mark C. Otto"
+format: docx
+visual: source
+---
+# The github
+https://github.com/MCOtto/CONPS.JCPOS
+
+We propagated and reared four forb and four grass species in a crossed design that measured plant growth and survival in 1) three types of soil (peat moss, a mineral and compost mix, and native garden soil), 2) with and without fertilization, and 3) with three planting dates (July 11, August 14, September 11). We coordinated three volunteer events to install the grown plant material in a restoration site on North Table Mountain Park. We coordinated biweekly ecological monitoring events to measure the success of these plants in the field. We engaged 114 volunteer community scientists to conduct monitoring protocols. 
+
+Hypothesis 1: Native seeds have variable germination rates that are regulated by environmental conditions. 
+Null Hypothesis 1: Environmental conditions do not affect seed germination rates.  Hypothesis 2: There is a difference in plant growth due to soil type.  
+Null Hypothesis 2: There is no difference in plant growth due to soil type. 
+Hypothesis 4: There is a difference in plant growth with fertilization. 
+Null Hypothesis 4: There is no difference in plant growth with fertilization. 
+Hypothesis 5: There is a difference in plant growth due to planting date.  
+Null Hypothesis 5: There is no difference in plant growth due to planting date. 
+
+ACMI Forb Achillea millefolium common yarrow
+SYER Forb Symphyotrichum ericoides white aster
+ARLU Forb Artemisia ludoviciana white mountain sage/ silver wormwood
+HEVI Forb Heterotheca villosa hairy goldenaster
+PASM Grass Pascopyrum smithii western wheatgrass
+BOGR Grass Bouteloua gracilis blue grama
+NAVI Grass Nassella viridula green needle
+HECO Grass Hesperostipa comata needle and thread grass
+
+
+# The raw data
+https://docs.google.com/spreadsheets/d/17ew4dCjH8dhogv0dL86T0rTgYDavqbZxnio64lDFdXI/edit?usp=sharing_eil_se_dm&ts=69923504
+
+# The final data
+https://docs.google.com/spreadsheets/d/1P6edgzQ2BclUHx-0tNX_oyg8ZR8H0lg0z8IRvqt3mRs/edit?usp=drive_link
+
+# 2026.02.26 I changed all the 2026 planting dates for 2025.
+
+glm(formula = cbind(count, 98 - count) ~ soil.type + herb.type/species, 
+    family = binomial(link = "logit"), data = Germination)
+
+Coefficients: (8 not defined because of singularities)
+                           Estimate Std. Error z value Pr(>|z|)    
+(Intercept)                  0.3530     0.1572   2.245  0.02474 *  
+soil.typeMineral/Compost    -0.2534     0.1242  -2.040  0.04136 *  
+herb.typeGrass               0.2538     0.2060   1.232  0.21782    
+herb.typeForb:speciesSYER    1.7976     0.2648   6.789 1.13e-11 ***
+herb.typeGrass:speciesSYER       NA         NA      NA       NA    
+herb.typeForb:speciesARLU    1.6135     0.2526   6.388 1.69e-10 ***
+herb.typeGrass:speciesARLU       NA         NA      NA       NA    
+herb.typeForb:speciesHEVI    1.7492     0.2614   6.691 2.22e-11 ***
+herb.typeGrass:speciesHEVI       NA         NA      NA       NA    
+herb.typeForb:speciesPASM        NA         NA      NA       NA    
+herb.typeGrass:speciesPASM   1.1593     0.2431   4.768 1.86e-06 ***
+herb.typeForb:speciesBOGR        NA         NA      NA       NA    
+herb.typeGrass:speciesBOGR   0.5953     0.2205   2.700  0.00693 ** 
+herb.typeForb:speciesNAVI        NA         NA      NA       NA    
+herb.typeGrass:speciesNAVI   0.5686     0.2197   2.588  0.00966 ** 
+herb.typeForb:speciesHECO        NA         NA      NA       NA    
+herb.typeGrass:speciesHECO       NA         NA      NA       NA    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+(Dispersion parameter for binomial family taken to be 1)
+
+    Null deviance: 127.9664  on 15  degrees of freedom
+Residual deviance:   9.1332  on  7  degrees of freedom
+AIC: 100.15
+
+Number of Fisher Scoring iterations: 4
+
+> anova(GrmnMdlM)
+Analysis of Deviance Table
+
+Model: binomial, link: logit
+
+Response: cbind(count, 98 - count)
+
+Terms added sequentially (first to last)
+
+
+                  Df Deviance Resid. Df Resid. Dev Pr(>Chi)    
+NULL                                 15    127.966             
+soil.type          1    3.864        14    124.103  0.04935 *  
+herb.type          1    7.865        13    116.238  0.00504 ** 
+herb.type:species  6  107.105         7      9.133  < 2e-16 ***
+
+
+
+## References
+
+Hunt R, Causton DR, Shipley B, Askew AP. A modern tool for classical plant growth analysis. Ann Bot. 2002 Oct;90(4):485-8. doi: 10.1093/aob/mcf214. PMID: 12324272; PMCID: PMC4240380.
