@@ -85,6 +85,71 @@ herb.type          1    7.865        13    116.238  0.00504 **
 herb.type:species  6  107.105         7      9.133  < 2e-16 ***
 
 
+# Survival analysis
+glm(formula = cbind(survived, planted - survived) ~ species * 
+    soil.type + species * plant.date + fertilized, family = binomial(link = "logit"), 
+    data = Survival, subset = !species %in% c("HEVI", "HECO"))
+
+Coefficients: (1 not defined because of singularities)
+                                 Estimate Std. Error z value Pr(>|z|)    
+(Intercept)                      -2.56841    1.35991  -1.889 0.058936 .  
+speciesARLU                      -2.42341    0.78875  -3.072 0.002123 ** 
+speciesPASM                       2.43210    2.04056   1.192 0.233309    
+speciesBOGR                       4.79521    1.43186   3.349 0.000811 ***
+speciesNAVI                       2.37455    1.81536   1.308 0.190863    
+soil.typepeat                     0.75123    1.24464   0.604 0.546130    
+soil.typeS3                       2.84888    1.33782   2.129 0.033213 *  
+plant.date2025-08-14              0.03064    0.35768   0.086 0.931742    
+plant.date2025-09-11              5.39634    1.14324   4.720 2.36e-06 ***
+fertilizedF                       0.54979    0.18088   3.040 0.002369 ** 
+speciesARLU:soil.typepeat        -0.72484    1.31940  -0.549 0.582752    
+speciesPASM:soil.typepeat        -2.60520    1.68923  -1.542 0.123014    
+speciesBOGR:soil.typepeat        -2.42392    1.33192  -1.820 0.068779 .  
+speciesNAVI:soil.typepeat        -4.00756    1.66495  -2.407 0.016083 *  
+speciesARLU:soil.typeS3           2.42472    0.89860   2.698 0.006969 ** 
+speciesPASM:soil.typeS3          -4.39641    1.95083  -2.254 0.024221 *  
+speciesBOGR:soil.typeS3          -5.05745    1.52011  -3.327 0.000878 ***
+speciesNAVI:soil.typeS3          -4.90041    1.68822  -2.903 0.003700 ** 
+speciesARLU:plant.date2025-08-14  1.19626    0.68949   1.735 0.082740 .  
+speciesPASM:plant.date2025-08-14  1.18672    0.84663   1.402 0.161005    
+speciesBOGR:plant.date2025-08-14  2.48276    1.22374   2.029 0.042476 *  
+speciesNAVI:plant.date2025-08-14  1.13563    0.99027   1.147 0.251466    
+speciesARLU:plant.date2025-09-11       NA         NA      NA       NA    
+speciesPASM:plant.date2025-09-11 -5.67000    1.85753  -3.052 0.002270 ** 
+speciesBOGR:plant.date2025-09-11 -5.09857    1.19903  -4.252 2.12e-05 ***
+speciesNAVI:plant.date2025-09-11 -3.66425    1.60971  -2.276 0.022826 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+(Dispersion parameter for binomial family taken to be 1)
+
+    Null deviance: 327.270  on 48  degrees of freedom
+Residual deviance:  76.939  on 24  degrees of freedom
+  (3 observations deleted due to missingness)
+AIC: 234.72
+
+Number of Fisher Scoring iterations: 5
+
+> anova(SrvlMdlI)
+Analysis of Deviance Table
+
+Model: binomial, link: logit
+
+Response: cbind(survived, planted - survived)
+
+Terms added sequentially (first to last)
+
+
+                   Df Deviance Resid. Df Resid. Dev  Pr(>Chi)    
+NULL                                  48     327.27              
+species             4  105.995        44     221.28 < 2.2e-16 ***
+soil.type           2   29.581        42     191.69 3.772e-07 ***
+plant.date          2   19.235        40     172.46 6.654e-05 ***
+fertilized          1    2.846        39     169.61  0.091615 .  
+species:soil.type   8   31.115        31     138.50  0.000134 ***
+species:plant.date  7   61.558        24      76.94 7.368e-11 ***
+---
+
 
 ## References
 
