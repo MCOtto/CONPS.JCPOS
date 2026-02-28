@@ -52,36 +52,50 @@ Survival <- read.xlsx(
 
 # Model selection
 SrvlMdlM <- glm(
-  cbind(survived, planted - survived) ~ species + soil.type + plant.date + fertilized,
+  cbind(survived, planted - survived) ~ species + soil.type * fertilized +  plant.date,
   family = binomial(link = "logit"),
   data = Survival
-  # ,subset = planted > 0
+  ,subset = !species %in% c("HEVI", "HECO")
 )
 summary(SrvlMdlM)
 anova(SrvlMdlM)
+
+SrvlMdlSF <- glm(
+  cbind(survived, planted - survived) ~ species *  soil.type * fertilized  +  plant.date,
+#  cbind(survived, planted - survived) ~ species * soil.type + soil.type * fertilized +  plant.date ,
+  family = binomial(link = "logit"),
+  data = Survival
+  ,subset = !species %in% c("HEVI", "HECO")
+)
+summary(SrvlMdlSF)
+anova(SrvlMdlSF)
 
 SrvlMdlI <- glm(
   cbind(survived, planted - survived) ~ species * soil.type + species * plant.date + fertilized,
   data = Survival,
   family = binomial(link = "logit")
+  ,subset = !species %in% c("HEVI", "HECO")
 )
 summary(SrvlMdlI)
 anova(SrvlMdlI)
 
 # Negative Hessian
-SrvlMdlLME <- glmmTMB(
-  cbind(survived, planted - survived) ~ 1 + (species|soil.type) + plant.date + fertilized,
-  # (species|plant.date)
-  data = Survival,
-  family = binomial(link = "logit")
-)
-summary(SrvlMdlLME)
-anova(SrvlMdlLME)
+# SrvlMdlLME <- glmmTMB(
+#   #   SrvlMdlLME <- glmer(
+#     cbind(survived, planted - survived) ~ 1 + (species|soil.type) + plant.date + fertilized,
+#   # (species|plant.date)
+#   data = Survival,
+#   family = binomial(link = "logit")
+#   ,subset = !species %in% c("HEVI", "HECO")
+# )
+# summary(SrvlMdlLME)
+# anova(SrvlMdlLME)
 
 SrvlMdlnF <- glm(
   cbind(survived, planted - survived) ~ species * soil.type + species * plant.date,
   data = Survival,
   family = binomial(link = "logit")
+  ,subset = !species %in% c("HEVI", "HECO")
 )
 summary(SrvlMdlnF)
 anova(SrvlMdlnF)
@@ -90,18 +104,19 @@ SrvlMdlF <- glm(
   cbind(survived, planted - survived) ~ species * soil.type * plant.date + fertilized,
   data = Survival,
   binomial(link = "logit")
+  ,subset = !species %in% c("HEVI", "HECO")
 )
 summary(SrvlMdlF)
 anova(SrvlMdlF)
 
 # The interaction with fertilized is best.
-AIC(SrvlMdlM, SrvlMdlI, SrvlMdlnF, SrvlMdlF)
+AIC(SrvlMdlM, SrvlMdlI, SrvlMdlnF, SrvlMdlF, SrvlMdlSF)
 
 # Make an expanded grid of species and soil types
 
 # Make an expanded grid of species, soil types, and plant dates
 CmbFac <- expand_grid(
-  species = cspecies,
+  species = cspecies[c(1:2,4:6)],
   soil.type = csoil.type,
   plant.date = cplantdate,
   fertilized = cfertilized
@@ -115,53 +130,51 @@ CmbFac <- expand_grid(
       "Forb",
       "Grass"
     ), levels = cherb.type),
-    species = factor(species, cspecies)
+    species = factor(species, cspecies[c(1:2,4:6)])
   )
 
+iVar <- c("species", "soil.type")
+jVar <- paste(iVar,collapse = ":")
+cVar <- "Species by Soil Type"
+# Plot survival by species and soil.type with plant.date = "2025-09-11"
+iCmbFac <- CmbFac %>%
+  filter(plant.date == "2025-09-11" & fertilized == "NF")
+
 # can work these to get the herb type and soil type statistics and plots.
-fitterms <- predict(
+pred <- predict(
   object = SrvlMdlI,
-  newdata = CmbFac,
-  type = "terms",
+  newdata = iCmbFac,
+  type = "response",
   se.fit = TRUE
 )
 
-intercept <- attr(fitterms$fit, "constant")
-tfit <- fitterms$fit
-colnames(tfit) <- paste(colnames(tfit), "Mn", sep = "")
-tse <- fitterms$se.fit
-colnames(tse) <- paste(colnames(tse), "SE", sep = "")
-
-Fit <- bind_cols(CmbFac, tfit, tse)
-
-# Make the marginal matrices
-# Species
-# Note that must be < sqrt(p * (1 - p))
-# HEVI and HECO are sparse.
-
-SpeciesFit <- Fit %>%
-  distinct(species, herb.type, speciesMn, speciesSE) %>%
+Pred <- bind_cols(iCmbFac,Mean = pred$fit, SE = pred$se.fit) %>%
   mutate(
-    lgt.species = intercept + speciesMn,
-    lgt.speciesSE = speciesSE,
-    pspecies = 1 / (1 + exp(-lgt.species)),
-    MxSE = 0.8 * sqrt(pspecies * (1 - pspecies)),
-    pspeciesSE = pmin(MxSE, pspecies * (1 - pspecies) * lgt.speciesSE),
-    Median = qbeta2(0.5, mean = pspecies, sd = pspeciesSE),
-    CI05 = qbeta2(0.05, mean = pspecies, sd = pspeciesSE),
-    CI95 = qbeta2(0.95, mean = pspecies, sd = pspeciesSE)
-  ) %>%
-  select(
-    species,
-    herb.type,
-    lgt.species,
-    lgt.speciesSE,
-    pspecies,
-    pspeciesSE,
-    Median,
-    CI05,
-    CI95
+    Median = qbeta2(0.5, mean = Mean, sd = SE),
+    CI05 = qbeta2(0.05, mean = Mean, sd = SE),
+    CI95 = qbeta2(0.95, mean = Mean, sd = SE)
   )
 
+# Plot predicted germination rates by soil type with 95% CI
+iPlot <- Pred %>%
+  ggplot(aes(x = Median, y = .data[[iVar[1]]]
+             , colour = .data[[iVar[2]]]
+  )) +
+  geom_point(size = 3, position = position_dodge(width = 0.5)) +
+  geom_errorbar(
+    aes(xmin = CI05, xmax = CI95),
+    #           orientation = "x",
+    height = 0.2,
+    position = position_dodge(width = 0.5)
+  ) +
+  labs(
+    x = "Median Survival Rates",
+    y = cVar,
+    title = paste("Survival Rates by", cVar),
+    subtitle = "90% Confidence Intervals"
+  ) +
+  theme_minimal(base_size = 14)
 
-
+assign(x = paste("Survival", gsub(" ", "", cVar), sep = "."), value = Pred)
+ggsave(filename = here::here(paste("doc/images/Survival", gsub(" ", "", cVar), "png", sep = ".")),
+       iPlot)
