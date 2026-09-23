@@ -1,4 +1,42 @@
-Maggie Gaddis Plant Growth Project
-# https://docs.google.com/document/d/1ZPzRxZzKbmEbDxhRxpYszzTOtjme4kVEPZzLsS3VUX4/edit?usp=sharing
-
-
+Package: CONPS.JCPOS
+Type: Compendium
+Title: Native Plant Germination and Survival Study for Jefferson County
+    Parks & Open Space
+Version: 0.2.0
+Date: 2026-09-22
+Authors@R: c(
+    person("Maggie", "Gaddis", email = "ExecutiveDirector@CoNPS.org",
+           role = c("aut", "dtc"),
+           comment = "Principal investigator, Colorado Native Plant Society"),
+    person("Mark C.", "Otto", email = "mark.ot2o@gmail.com",
+           role = c("aut", "cre"),
+           comment = "Statistical analysis"))
+Description: Data, R code, and documentation for the Colorado Native Plant
+    Society (CoNPS) study funded by a 2025 Jefferson County Parks & Open Space
+    (JCPOS) research grant. Four forb and four grass species native to JCPOS
+    properties were germinated in peat and mineral/compost media, then
+    planted on North Table Mountain Park in three soil types, with and
+    without fertilization, on three dates in 2025. Binomial generalized
+    linear models estimate germination by species and soil type, and field
+    survival by species, soil type, planting date, and fertilization.
+    Run R/Germination.R and R/Survival.R from the project root; figures are
+    written to doc/images/ and estimate tables to doc/tables/.
+License: CC BY 4.0
+URL: https://github.com/MCOtto/CONPS.JCPOS
+BugReports: https://github.com/MCOtto/CONPS.JCPOS/issues
+Depends:
+    R (>= 4.1.0)
+Imports:
+    dplyr (>= 1.1.0),
+    ggplot2 (>= 3.4.0),
+    here,
+    IPMbook,
+    stringr,
+    tibble,
+    tidyr,
+    xlsx
+Suggests:
+    glmmTMB
+SystemRequirements: Java (required by xlsx through rJava)
+Encoding: UTF-8
+Language: en-US

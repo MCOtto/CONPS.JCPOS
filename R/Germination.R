@@ -1,179 +1,159 @@
+# Germination analysis for the CoNPS/JCPOS native plant study.
+#
+# Data: ori/JCOS data - MG.xlsx, sheet "germination rates". One SC10 tray
+# (98 cells) per species x soil type; count = cells with a seedling on
+# June 1, 2025. Forbs were sown 1 seed per cell, grasses ~10 seeds per cell.
+#
+# Figures are written to doc/images/ and estimate tables to doc/tables/.
+
 library(xlsx)
 library(here)
 library(dplyr)
 library(tidyr)
 library(stringr)
-library(IPMbook)
+library(IPMbook)   # qbeta2(): beta quantiles from a mean and sd
 library(ggplot2)
 
-# Read the germination data
-csoil.type <- c("Peat", "Mineral/Compost")
+source(here("R", "Helpers.R"))
 
-# Grass BOGR Blue gramma
-# Grass HECO Hesperostipa comata
-# Forb HEVI Helleborus viridis
-# Grass? NAVI ?
-# Grass PASM Paspalum genus n the Poaceae family
-# Forb  SYER White heath aster (Symphyotrichum ericoides)
+# Factor levels ---------------------------------------------------------------
+csoil.type <- c("Peat", "Mineral/Compost")
 cherb.type <- c("Forb", "Grass")
-cspecies <- c("ACMI", "SYER", "ARLU", "HEVI", "PASM", "BOGR", "NAVI", "HECO")
+cforb <- c("ACMI", "SYER", "ARLU", "HEVI")
+# Forb  ACMI Achillea millefolium, common yarrow
+# Forb  SYER Symphyotrichum ericoides, white heath aster
+# Forb  ARLU Artemisia ludoviciana, white sage / silver wormwood
+# Forb  HEVI Heterotheca villosa, hairy goldenaster
+# Grass PASM Pascopyrum smithii, western wheatgrass
+# Grass BOGR Bouteloua gracilis, blue grama
+# Grass NAVI Nassella viridula, green needlegrass
+# Grass HECO Hesperostipa comata, needle-and-thread grass
+cspecies <- c(cforb, "PASM", "BOGR", "NAVI", "HECO")
+nCells <- 98
+
+# Read the germination data -----------------------------------------------------
+# The species column holds e.g. "ACMI Peat"; the first four characters are the code.
 Germination <- read.xlsx(
-  file = paste0(here("ori"), "/JCOS data - MG.xlsx"),
+  file = here("ori", "JCOS data - MG.xlsx"),
   sheetName = "germination rates",
   rowIndex = 1:17,
   colIndex = c(1, 2, 4),
   colClasses = c("text", "text", "numeric")
 ) %>%
   mutate(
-    herb.type = factor(ifelse(
-      str_sub(species, 1, 4) %in% c("ACMI", "SYER", "ARLU", "HEVI"), "Forb", "Grass"), 
-      levels = cherb.type),
+    herb.type = factor(ifelse(str_sub(species, 1, 4) %in% cforb, "Forb", "Grass"),
+                       levels = cherb.type),
     soil.type = factor(soil.type, levels = csoil.type),
     species = factor(str_sub(species, 1, 4), levels = cspecies)
   ) %>%
   select(species, herb.type, soil.type, count)
 
-GrmnMdlSS <- glm(cbind(count, 98 - count) ~ species + soil.type,
-                data = Germination,
-                binomial(link = "logit"))
+# Observed germination ---------------------------------------------------------
+ObsPlot <- Germination %>%
+  mutate(rate = count / nCells,
+         species = factor(species, levels = rev(cspecies))) %>%
+  ggplot(aes(x = rate, y = species, colour = soil.type)) +
+  geom_point(size = 3, position = position_dodge(width = 0.5)) +
+  geom_hline(yintercept = 4.5, linetype = "dashed", colour = "grey60") +
+  scale_colour_manual(values = soil.colours) +
+  scale_x_continuous(limits = c(0.4, 1)) +
+  labs(x = "Observed germination proportion (cells of 98)", y = NULL,
+       colour = "Soil type",
+       title = "Observed germination by species and soil type",
+       subtitle = "Forbs above the dashed line, grasses below") +
+  theme_jcpos()
+save_figure(ObsPlot, "GerminationObserved.png")
+
+# Models -------------------------------------------------------------------------
+GrmnMdlSS <- glm(cbind(count, nCells - count) ~ species + soil.type,
+                 data = Germination, family = binomial(link = "logit"))
 summary(GrmnMdlSS)
 anova(GrmnMdlSS)
 
-GrmnMdlM <- glm(cbind(count, 98 - count) ~ soil.type + herb.type / species,
-                data = Germination,
-                binomial(link = "logit"))
+# Same fit as GrmnMdlSS, but nesting species in herb type lets the sequential
+# deviance table separate forbs vs. grasses from the variation among species.
+GrmnMdlM <- glm(cbind(count, nCells - count) ~ soil.type + herb.type / species,
+                data = Germination, family = binomial(link = "logit"))
 summary(GrmnMdlM)
 anova(GrmnMdlM)
 
-GrmnMdlI <- glm(
-  cbind(count, 98 - count) ~ herb.type / species + species * soil.type,
-  data = Germination,
-  binomial(link = "logit")
-)
+# Saturated: one parameter per tray.
+GrmnMdlI <- glm(cbind(count, nCells - count) ~ herb.type / species + species * soil.type,
+                data = Germination, family = binomial(link = "logit"))
 summary(GrmnMdlI)
 anova(GrmnMdlI)
 
 AIC(GrmnMdlSS, GrmnMdlM, GrmnMdlI)
 
-# Make an expanded grid of species and soil types
+# Dispersion check: Pearson chi-square / residual df (about 1.3 here, so fine).
+sum(residuals(GrmnMdlM, type = "pearson")^2) / df.residual(GrmnMdlM)
+
+# Estimated rates ------------------------------------------------------------------
+# Grid of every species x soil type.
 CmbFac <- expand_grid(species = cspecies, soil.type = csoil.type) %>%
   mutate(
-    herb.type = factor(ifelse(
-      str_sub(species, 1, 4) %in% c("ACMI", "SYER", "ARLU", "HEVI"),
-      "Forb",
-      "Grass"
-    ), levels = cherb.type),
-    soil.type = factor(soil.type, csoil.type),
-    species = factor(species, cspecies)
+    herb.type = factor(ifelse(species %in% cforb, "Forb", "Grass"), levels = cherb.type),
+    soil.type = factor(soil.type, levels = csoil.type),
+    species = factor(species, levels = cspecies)
   )
 
-# can work these to get the herb type and soil type statistics and plots.
-fitterms <- predict(
-  object = GrmnMdlM,
-  newdata = CmbFac,
-  type = "terms",
-  se.fit = TRUE
-)
+# Soil type: average the logits over all eight species.
+# Herb type: average the logits over the four species of each type and both soils.
+# NOTE: predict(type = "terms") is not used for herb type because, with species
+# nested in herb type, the herb.type term is only the HECO-vs-ACMI contrast.
+SoilFit <- marginal_rates(GrmnMdlM, CmbFac, by = "soil.type")
+HerbFit <- marginal_rates(GrmnMdlM, CmbFac, by = "herb.type")
+SoilFit
+HerbFit
 
-intercept <- attr(fitterms$fit, "constant")
-Fit <- bind_cols(
-  CmbFac,
-  lgt.herb = intercept + as.double(fitterms$fit[, "herb.type"]),
-  lgt.herbSE = as.double(fitterms$se.fit[, "herb.type"]),
-  lgt.soil = intercept + as.double(fitterms$fit[, "soil.type"]),
-  lgt.soilSE = as.double(fitterms$se.fit[, "soil.type"])
-)
+SoilPlot <- SoilFit %>%
+  ggplot(aes(x = Median, y = soil.type, colour = soil.type)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(xmin = CI05, xmax = CI95), width = 0.2) +
+  scale_colour_manual(values = soil.colours, guide = "none") +
+  scale_x_continuous(expand = expansion(mult = 0.1)) +
+  labs(x = "Estimated germination rate", y = "Soil type",
+       title = "Germination rates by soil type",
+       subtitle = "Averaged over species; error bars are 90% intervals") +
+  theme_jcpos()
+save_figure(SoilPlot, "GerminationSoilType.png", width = 5.5, height = 2.8)
 
-SoilFit <- Fit %>%
-  distinct(soil.type, lgt.soil, lgt.soilSE) %>%
-  mutate(
-    psoil = 1 / (1 + exp(-lgt.soil)),
-    psoilSE = psoil * (1 - psoil) * lgt.soilSE,
-    Median = qbeta2(0.5, mean = psoil, sd = psoilSE),
-    CI05 = qbeta2(0.05, mean = psoil, sd = psoilSE),
-    CI95 = qbeta2(0.95, mean = psoil, sd = psoilSE)
-  )
+HerbPlot <- HerbFit %>%
+  ggplot(aes(x = Median, y = herb.type, colour = herb.type)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(xmin = CI05, xmax = CI95), width = 0.2) +
+  scale_colour_manual(values = herb.colours, guide = "none") +
+  scale_x_continuous(expand = expansion(mult = 0.1)) +
+  labs(x = "Estimated germination rate", y = "Herb type",
+       title = "Germination rates by herb type",
+       subtitle = "Averaged over species and soils; error bars are 90% intervals") +
+  theme_jcpos()
+save_figure(HerbPlot, "GerminationHerbType.png", width = 5.5, height = 2.8)
 
-# Plot predicted germination rates by soil type with 95% CI
-SoilFit %>%
-  ggplot(aes(x = Median,
-             y = soil.type)) +
-  geom_point(size = 3,
-             position = position_dodge(width = 0.5)) +
-  geom_errorbar(aes(xmin = CI05,
-                    xmax = CI95),
-                #           orientation = "x",
-                height = 0.2,
-                position = position_dodge(width = 0.5)) +
-  labs(
-    x = "Median Germination Rates",
-    y = "Soil Type",
-    title = "Germination Rates by Soil Type",
-    subtitle = "Error bars represent 90% confidence intervals"
-  ) +
-  theme_minimal(base_size = 14)
+# Species, in mineral/compost.
+pred <- predict(GrmnMdlM, newdata = CmbFac, type = "response", se.fit = TRUE)
+Pred <- bind_cols(CmbFac, beta_interval(pred$fit, pred$se.fit))
 
-HerbFit <- Fit %>%
-  distinct(herb.type, lgt.herb, lgt.herbSE) %>%
-  mutate(
-    pherb = 1 / (1 + exp(-lgt.herb)),
-    pherbSE = pherb * (1 - pherb) * lgt.herbSE,
-    Median = qbeta2(0.5, mean = pherb, sd = pherbSE),
-    CI05 = qbeta2(0.05, mean = pherb, sd = pherbSE),
-    CI95 = qbeta2(0.95, mean = pherb, sd = pherbSE)
-  )
-
-HerbFit %>%
-  ggplot(aes(x = Median,
-             y = herb.type)) +
-  geom_point(size = 3,
-             position = position_dodge(width = 0.5)) +
-  geom_errorbar(aes(xmin = CI05,
-                    xmax = CI95),
-                #           orientation = "x",
-                height = 0.2,
-                position = position_dodge(width = 0.5)) +
-  labs(
-    x = "Median Germination Rates",
-    y = "Herb Type",
-    title = "Germination Rates by Herb Type",
-    subtitle = "Error bars represent 90% confidence intervals"
-  ) +
-  theme_minimal(base_size = 14)
-  
-# Plot differences by species
-pred <- predict(
-  object = GrmnMdlM,
-  newdata = CmbFac,
-  type = "response",
-  se.fit = TRUE
-)
-
-Pred <- bind_cols(CmbFac,Mean = pred$fit, SE = pred$se.fit) %>%
-  mutate(
-    Median = qbeta2(0.5, mean = Mean, sd = SE),
-    CI05 = qbeta2(0.05, mean = Mean, sd = SE),
-    CI95 = qbeta2(0.95, mean = Mean, sd = SE)
-  )
-
-# Plot predicted germination rates with 95% CI
-Pred %>%
+SpeciesPlot <- Pred %>%
   filter(soil.type == "Mineral/Compost") %>%
-  ggplot(aes(x = Median,
-           y = species, 
-           colour = herb.type)) +
-  geom_point(size = 3,
-             position = position_dodge(width = 0.5)) +
-  geom_errorbar(aes(xmin = CI05,
-                     xmax = CI95),
-     #           orientation = "x",
-                 height = 0.2,
-                 position = position_dodge(width = 0.5)) +
-  labs(
-    x = "Median Germination Rates",
-    y = "Species",
-    colour = "Herb Type",
-    title = "Predicted Germination Rates by Species and Mineral/Compost",
-    subtitle = "Error bars represent 90% confidence intervals"
-  ) +
-  theme_minimal(base_size = 14)
+  mutate(species = factor(species, levels = rev(cspecies))) %>%
+  ggplot(aes(x = Median, y = species, colour = herb.type)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(xmin = CI05, xmax = CI95), width = 0.2) +
+  scale_colour_manual(values = herb.colours) +
+  labs(x = "Estimated germination rate", y = "Species", colour = "Herb type",
+       title = "Germination rates by species, mineral/compost",
+       subtitle = "Error bars are 90% intervals") +
+  theme_jcpos()
+save_figure(SpeciesPlot, "GerminationSpecies.png")
+
+# Tables for the report ---------------------------------------------------------
+write_table(
+  bind_rows(
+    SoilFit %>% transmute(group = "Soil type", level = as.character(soil.type), Mean, SE, Median, CI05, CI95),
+    HerbFit %>% transmute(group = "Herb type", level = as.character(herb.type), Mean, SE, Median, CI05, CI95),
+    Pred %>% filter(soil.type == "Mineral/Compost") %>%
+      transmute(group = "Species (Mineral/Compost)", level = as.character(species), Mean, SE, Median, CI05, CI95)
+  ),
+  "GerminationEstimates.csv"
+)
